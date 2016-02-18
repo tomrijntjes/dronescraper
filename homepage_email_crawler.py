@@ -1,29 +1,31 @@
-import re, urllib
-import urllib2
-from bs4 import BeautifulSoup
 import csv
+import scrapy
 
-mailtos = []
-i=0
-with open('locations.csv', 'rb') as csvfile:
-    lines = csv.reader(csvfile, delimiter=';', quotechar='|')
-    for line in lines:
-        print i
-        if len(line) > 1:
-            if "http" in line[3]:
-                try:
-                    r = urllib2.urlopen(line[3]).read()
-                    soup = BeautifulSoup(r, 'html.parser')
-                    for url in soup.find_all("a", href=True):
-                        if "mailto" in url["href"] and not "javascript" in url["href"]:
-                            if url["href"] not in mailtos:
-                                print url["href"].strip()
-                                mailtos.append(url["href"].strip())
-                                f = open('mailtos.txt', 'a')
-                                f.write(url["href"].strip() + "\n")
-                                f.close()
-                except:
-                    print "failed with " + str(line[3])
-        i+=1
+            
+    
 
-print len(mailtos)
+class outfun(scrapy.Spider):
+    def __init__(self):
+        name = "outfun"
+        allowed_domains = [url for url in self.load_urls()]
+    
+    def parse(self, response):
+        with open("mailto.txt",'a') as f:
+            for href in response.xpath('//a/@href').extract():
+                if "mailto" in href:
+                    f.write(href)
+        for href in response.css("ul.directory.dir-col > li > a::attr('href')"):
+            url = response.urljoin(href.extract())
+            yield scrapy.Request(url, callback=self.parse_dir_contents)
+        
+    
+            
+    def load_urls(self):    
+        with open('locations.csv', 'rb') as csvfile:
+            lines = csv.reader(csvfile, delimiter=';', quotechar='|')
+            for line in lines:
+                if len(line) > 1:
+                    if "http" in line[3]:
+                        yield line
+
+out = outfun()
